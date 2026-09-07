@@ -36,6 +36,9 @@ class BubbleAccessibilityService : AccessibilityService() {
         private const val TAG = "PsterVoice"
         private const val BUBBLE_SIZE_DP = 38
         private const val PILL_WIDTH_DP = 140
+        private const val ACTIVE_SIZE_MULTIPLIER = 1.10f
+        // aumento de 20% em cima do que ja estava (ocioso e ativo, os dois)
+        private const val SIZE_BOOST_MULTIPLIER = 1.20f
         private const val EDGE_PADDING_DP = 16
         private const val DRAG_THRESHOLD_PX = 20
         private const val HOLD_THRESHOLD_MS = 450L
@@ -52,6 +55,7 @@ class BubbleAccessibilityService : AccessibilityService() {
 
     private var compactSizePx = 0
     private var expandedWidthPx = 0
+    private var expandedHeightPx = 0
 
     private var voiceCaptureService: VoiceCaptureService? = null
     private var isBound = false
@@ -70,7 +74,11 @@ class BubbleAccessibilityService : AccessibilityService() {
             voiceCaptureService = service
             isBound = true
             if (state == BubbleState.LISTENING) {
-                service.startRecording {}
+                service.startRecording {
+                    if (state == BubbleState.LISTENING) {
+                        bubbleView.setState(BubbleView.State.LISTENING)
+                    }
+                }
             }
             audioLevelJob = serviceScope.launch {
                 service.audioLevel.collect { level -> bubbleView.setAudioLevel(level) }
@@ -112,8 +120,9 @@ class BubbleAccessibilityService : AccessibilityService() {
     private fun setupBubble() {
         bubbleView = BubbleView(this)
 
-        compactSizePx = (BUBBLE_SIZE_DP * resources.displayMetrics.density).toInt()
-        expandedWidthPx = (PILL_WIDTH_DP * resources.displayMetrics.density).toInt()
+        compactSizePx = (BUBBLE_SIZE_DP * SIZE_BOOST_MULTIPLIER * resources.displayMetrics.density).toInt()
+        expandedWidthPx = (PILL_WIDTH_DP * ACTIVE_SIZE_MULTIPLIER * SIZE_BOOST_MULTIPLIER * resources.displayMetrics.density).toInt()
+        expandedHeightPx = (BUBBLE_SIZE_DP * ACTIVE_SIZE_MULTIPLIER * SIZE_BOOST_MULTIPLIER * resources.displayMetrics.density).toInt()
 
         val (savedX, savedY) = loadSavedPosition()
         layoutParams = WindowManager.LayoutParams(
@@ -212,7 +221,7 @@ class BubbleAccessibilityService : AccessibilityService() {
     private fun startListening() {
         state = BubbleState.LISTENING
         expandBubble()
-        bubbleView.setState(BubbleView.State.LISTENING)
+        bubbleView.setState(BubbleView.State.CONNECTING)
 
         val intent = Intent(this, VoiceCaptureService::class.java)
         ContextCompat.startForegroundService(this, intent)
@@ -272,13 +281,28 @@ class BubbleAccessibilityService : AccessibilityService() {
     }
 
     private fun expandBubble() {
+        layoutParams.x = recalculateAnchoredX(expandedWidthPx)
         layoutParams.width = expandedWidthPx
+        layoutParams.height = expandedHeightPx
         windowManager.updateViewLayout(bubbleView, layoutParams)
     }
 
     private fun collapseBubble() {
+        layoutParams.x = recalculateAnchoredX(compactSizePx)
         layoutParams.width = compactSizePx
+        layoutParams.height = compactSizePx
         windowManager.updateViewLayout(bubbleView, layoutParams)
+    }
+
+    private fun recalculateAnchoredX(newWidth: Int): Int {
+        val screenWidth = resources.displayMetrics.widthPixels
+        val paddingPx = (EDGE_PADDING_DP * resources.displayMetrics.density).toInt()
+        val anchoredRight = layoutParams.x > screenWidth / 2
+        return if (anchoredRight) {
+            screenWidth - newWidth - paddingPx
+        } else {
+            paddingPx
+        }
     }
 
     private fun snapToNearestEdge(currentX: Int): Int {

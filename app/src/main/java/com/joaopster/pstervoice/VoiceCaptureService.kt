@@ -28,6 +28,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import kotlin.math.min
 import kotlin.math.sqrt
 
 class VoiceCaptureService : LifecycleService() {
@@ -40,6 +41,8 @@ class VoiceCaptureService : LifecycleService() {
         private const val INPUT_DEVICE_RETRY_COUNT = 4
         private const val INPUT_DEVICE_RETRY_INTERVAL_MS = 400L
         private const val ROUTED_DEVICE_SETTLE_DELAY_MS = 250L
+        // sub-chunk de ~25ms pro calculo de nivel, independente do tamanho do buffer de leitura do AudioRecord
+        private const val LEVEL_CHUNK_BYTES = (SAMPLE_RATE * 25 / 1000) * 2
     }
 
     inner class LocalBinder : Binder() {
@@ -134,7 +137,7 @@ class VoiceCaptureService : LifecycleService() {
                 val read = record.read(buffer, 0, buffer.size)
                 if (read > 0) {
                     pcmBuffer?.write(buffer, 0, read)
-                    _audioLevel.value = calculateRms(buffer, read)
+                    emitLevelChunks(buffer, read)
                 }
             }
         }
@@ -192,12 +195,22 @@ class VoiceCaptureService : LifecycleService() {
         }
     }
 
-    private fun calculateRms(buffer: ByteArray, length: Int): Float {
+    private fun emitLevelChunks(buffer: ByteArray, length: Int) {
+        var offset = 0
+        while (offset < length) {
+            val chunkLength = min(LEVEL_CHUNK_BYTES, length - offset)
+            _audioLevel.value = calculateRms(buffer, offset, chunkLength)
+            offset += chunkLength
+        }
+    }
+
+    private fun calculateRms(buffer: ByteArray, offset: Int, length: Int): Float {
         if (length < 2) return 0f
         var sumOfSquares = 0.0
         var sampleCount = 0
-        var i = 0
-        while (i + 1 < length) {
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
             val sample = ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
             sumOfSquares += sample * sample
             sampleCount++

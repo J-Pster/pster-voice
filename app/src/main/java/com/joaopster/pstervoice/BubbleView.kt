@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.view.Choreographer
 import android.view.View
 import androidx.core.content.ContextCompat
 import kotlin.math.max
@@ -13,21 +14,40 @@ import kotlin.math.sqrt
 
 class BubbleView(context: Context) : View(context) {
 
-    enum class State { IDLE, LISTENING, PROCESSING }
+    enum class State { IDLE, CONNECTING, LISTENING, PROCESSING }
     enum class Zone { CANCEL, CONFIRM, WAVEFORM }
 
     companion object {
         private val BAR_WEIGHTS = floatArrayOf(0.45f, 0.75f, 1f, 1f, 0.75f, 0.45f)
+        private const val LEVEL_SMOOTHING = 0.3f
     }
 
     private var state = State.IDLE
-    private var audioLevel = 0f
+    private var targetAudioLevel = 0f
+    private var displayedAudioLevel = 0f
+    private var animationRunning = false
+
+    private val frameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            displayedAudioLevel += (targetAudioLevel - displayedAudioLevel) * LEVEL_SMOOTHING
+            invalidate()
+            if (state == State.LISTENING) {
+                Choreographer.getInstance().postFrameCallback(this)
+            } else {
+                animationRunning = false
+            }
+        }
+    }
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.bubble_letter)
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
+    }
+    private val connectingTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.bubble_waveform)
+        textAlign = Paint.Align.CENTER
     }
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.bubble_waveform)
@@ -51,12 +71,25 @@ class BubbleView(context: Context) : View(context) {
     fun setState(newState: State) {
         state = newState
         updateBackgroundColor()
+        if (newState == State.LISTENING) {
+            startAnimationLoopIfNeeded()
+        } else {
+            targetAudioLevel = 0f
+            displayedAudioLevel = 0f
+        }
         invalidate()
     }
 
     fun setAudioLevel(level: Float) {
-        audioLevel = level.coerceIn(0f, 1f)
-        if (state == State.LISTENING) invalidate()
+        targetAudioLevel = level.coerceIn(0f, 1f)
+        startAnimationLoopIfNeeded()
+    }
+
+    private fun startAnimationLoopIfNeeded() {
+        if (!animationRunning && state == State.LISTENING) {
+            animationRunning = true
+            Choreographer.getInstance().postFrameCallback(frameCallback)
+        }
     }
 
     fun hitTestZone(x: Float): Zone = when {
@@ -68,6 +101,7 @@ class BubbleView(context: Context) : View(context) {
     private fun updateBackgroundColor() {
         val colorRes = when (state) {
             State.IDLE -> R.color.bubble_idle
+            State.CONNECTING -> R.color.bubble_pill_listening_bg
             State.LISTENING -> R.color.bubble_pill_listening_bg
             State.PROCESSING -> R.color.bubble_pill_processing_bg
         }
@@ -78,6 +112,7 @@ class BubbleView(context: Context) : View(context) {
         super.onDraw(canvas)
         when (state) {
             State.IDLE -> drawIdle(canvas)
+            State.CONNECTING -> drawConnecting(canvas)
             State.LISTENING -> drawExpanded(canvas, animated = true)
             State.PROCESSING -> drawExpanded(canvas, animated = false)
         }
@@ -90,6 +125,17 @@ class BubbleView(context: Context) : View(context) {
         textPaint.textSize = height * 0.5f
         val textY = height / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText("P", width / 2f, textY, textPaint)
+    }
+
+    private fun drawConnecting(canvas: Canvas) {
+        val cornerRadius = height / 2f
+        canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), cornerRadius, cornerRadius, backgroundPaint)
+
+        drawCancelButton(canvas)
+        connectingTextPaint.textSize = height * 0.28f
+        val textY = height / 2f - (connectingTextPaint.descent() + connectingTextPaint.ascent()) / 2f
+        canvas.drawText("Conectando...", width / 2f, textY, connectingTextPaint)
+        drawConfirmButton(canvas)
     }
 
     private fun drawExpanded(canvas: Canvas, animated: Boolean) {
@@ -136,7 +182,7 @@ class BubbleView(context: Context) : View(context) {
         val centerY = height / 2f
         // RMS de fala/ambiente normal fica na casa de 0.001-0.05, bem abaixo de 1.0;
         // sqrt + ganho traz esses valores pra uma faixa visivel nas barras.
-        val level = if (animated) (sqrt(audioLevel) * 5f).coerceIn(0f, 1f) else 0.3f
+        val level = if (animated) (sqrt(displayedAudioLevel) * 5f).coerceIn(0f, 1f) else 0.3f
 
         for (i in BAR_WEIGHTS.indices) {
             val barHeight = max(minBarHeight, maxBarHeight * level * BAR_WEIGHTS[i])
