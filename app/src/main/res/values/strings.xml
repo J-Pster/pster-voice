@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pster Voice</string>
+
+    <string name="setup_title">Configuração do Pster Voice</string>
+    <string name="setup_step1_title">1. Permissões</string>
+    <string name="setup_step1_desc">O app precisa de acesso ao microfone, Bluetooth e notificações.</string>
+    <string name="setup_step2_title">2. Serviço de Acessibilidade</string>
+    <string name="setup_step2_desc">Ative o Pster Voice na tela de Acessibilidade para a bolha flutuante e a colagem automática de texto funcionarem.</string>
+
+    <string name="btn_request_permissions">Conceder permissões</string>
+    <string name="btn_open_accessibility_settings">Abrir configurações de acessibilidade</string>
+
+    <string name="status_permissions_granted">Permissões: concedidas</string>
+    <string name="status_permissions_missing">Permissões: faltando</string>
+    <string name="status_accessibility_enabled">Serviço de acessibilidade: ativo</string>
+    <string name="status_accessibility_disabled">Serviço de acessibilidade: inativo</string>
+
+    <string name="notification_channel_name">Pster Voice</string>
+    <string name="notification_title">Pster Voice</string>
+    <string name="notification_text_listening">Ouvindo…</string>
+
+    <string name="toast_no_focused_field">Texto copiado, nenhum campo de texto focado</string>
+    <string name="toast_transcription_failed">Falha na transcrição</string>
+    <string name="toast_no_speech_detected">Nenhuma fala detectada</string>
+</resources>
