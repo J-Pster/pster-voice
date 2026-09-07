@@ -27,6 +27,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".DictionaryActivity"
+            android:exported="false"
+            android:label="@string/dictionary_title" />
+
         <service
             android:name=".VoiceCaptureService"
             android:exported="false"

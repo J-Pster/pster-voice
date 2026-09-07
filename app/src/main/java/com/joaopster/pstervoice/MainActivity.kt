@@ -30,6 +30,9 @@ class MainActivity : AppCompatActivity() {
         binding.buttonOpenAccessibilitySettings.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
+        binding.buttonOpenDictionary.setOnClickListener {
+            startActivity(Intent(this, DictionaryActivity::class.java))
+        }
     }
 
     override fun onResume() {

@@ -6,6 +6,7 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
@@ -15,6 +16,8 @@ import java.util.concurrent.TimeUnit
 object ElevenLabsClient {
 
     private const val TAG = "PsterVoice"
+    private const val MAX_KEYTERM_LENGTH = 50
+    private const val MAX_KEYTERM_COUNT = 1000
 
     sealed class TranscriptionResult {
         data class Success(val text: String) : TranscriptionResult()
@@ -28,18 +31,28 @@ object ElevenLabsClient {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    fun transcribe(wavFile: File): TranscriptionResult {
+    fun transcribe(wavFile: File, keyterms: List<String> = emptyList()): TranscriptionResult {
         return try {
             Log.d(TAG, "Enviando arquivo WAV: ${wavFile.absolutePath}, tamanho=${wavFile.length()} bytes")
             if (wavFile.length() < 1000) {
                 Log.w(TAG, "Arquivo de audio suspeito, pode ser curto demais para a API (minimo 100ms)")
             }
 
-            val requestBody = MultipartBody.Builder()
+            val limitedKeyterms = keyterms
+                .map { if (it.length > MAX_KEYTERM_LENGTH) it.take(MAX_KEYTERM_LENGTH) else it }
+                .take(MAX_KEYTERM_COUNT)
+
+            val bodyBuilder = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("model_id", "scribe_v2")
                 .addFormDataPart("file", wavFile.name, wavFile.asRequestBody("audio/wav".toMediaType()))
-                .build()
+
+            if (limitedKeyterms.isNotEmpty()) {
+                bodyBuilder.addFormDataPart("keyterms", JSONArray(limitedKeyterms).toString())
+                Log.d(TAG, "Keyterms enviados (${limitedKeyterms.size}): $limitedKeyterms")
+            }
+
+            val requestBody = bodyBuilder.build()
 
             val request = Request.Builder()
                 .url("https://api.elevenlabs.io/v1/speech-to-text")

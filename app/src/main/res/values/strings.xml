@@ -23,4 +23,12 @@
     <string name="toast_no_focused_field">Texto copiado, nenhum campo de texto focado</string>
     <string name="toast_transcription_failed">Falha na transcrição</string>
     <string name="toast_no_speech_detected">Nenhuma fala detectada</string>
+
+    <string name="btn_open_dictionary">Gerenciar dicionário</string>
+    <string name="dictionary_title">Dicionário pessoal</string>
+    <string name="dictionary_hint_wrong">Palavra ou expressão errada</string>
+    <string name="dictionary_hint_correct">Correção</string>
+    <string name="btn_add_entry">Adicionar</string>
+    <string name="btn_remove_entry">X</string>
+    <string name="dictionary_entry_format">%1$s → %2$s</string>
 </resources>

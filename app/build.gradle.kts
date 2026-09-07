@@ -28,6 +28,11 @@ android {
             "ELEVENLABS_API_KEY",
             "\"${secretsProperties.getProperty("ELEVENLABS_API_KEY", "")}\""
         )
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"${secretsProperties.getProperty("GEMINI_API_KEY", "")}\""
+        )
     }
 
     buildTypes {

@@ -69,4 +69,11 @@
         android:layout_marginTop="4dp"
         android:text="@string/status_accessibility_disabled" />
 
+    <Button
+        android:id="@+id/button_open_dictionary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/btn_open_dictionary" />
+
 </LinearLayout>

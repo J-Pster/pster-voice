@@ -170,7 +170,18 @@ class VoiceCaptureService : LifecycleService() {
             val result = withContext(Dispatchers.IO) {
                 val wavFile = WavUtils.writeWavFile(cacheDir, pcmData, SAMPLE_RATE)
                 Log.d(TAG, "Gravacao finalizada, bytes lidos=${pcmData.size}, arquivo=${wavFile.absolutePath}")
-                ElevenLabsClient.transcribe(wavFile)
+
+                val dictionaryEntries = DictionaryStore.loadEntries(this@VoiceCaptureService)
+                val keyterms = DictionaryStore.getKeyterms(dictionaryEntries)
+
+                when (val transcription = ElevenLabsClient.transcribe(wavFile, keyterms)) {
+                    is ElevenLabsClient.TranscriptionResult.Success -> {
+                        val cleaned = GeminiCleanupClient.cleanup(transcription.text)
+                        val finalText = DictionaryStore.applyDictionary(cleaned, dictionaryEntries)
+                        ElevenLabsClient.TranscriptionResult.Success(finalText)
+                    }
+                    else -> transcription
+                }
             }
             onResult(result)
         }
